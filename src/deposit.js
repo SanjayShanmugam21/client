@@ -1,109 +1,109 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import axios from "axios";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import "bootstrap/dist/css/bootstrap.min.css";
+import UserContext from './context';
+import { toast } from "react-toastify";
 
 export default function Deposit() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [deposit, setDeposit] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isValid, setIsValid] = useState(false);
-
-  // Validate form inputs
-  const validateForm = () => {
-    if (!email.trim() || !password.trim() || isNaN(deposit) || deposit <= 0) {
-      setIsValid(false);
-    } else {
-      setIsValid(true);
-    }
-  };
+  const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+  const { user, setUser } = useContext(UserContext);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage("");
-    setSuccessMessage("");
 
     const depositAmount = parseFloat(deposit);
 
     if (isNaN(depositAmount) || depositAmount <= 0) {
-      setErrorMessage("Invalid deposit amount.");
+      toast.error("Invalid deposit amount.");
+      return;
+    }
+
+    if (pin.length !== 4) {
+      toast.error("Transaction PIN must be 4 digits.");
       return;
     }
 
     try {
-      // Sending only email and deposit amount (password is checked on frontend)
-      const response = await axios.post("https://servers-z5cm.onrender.com/data/deposit", {
-        email,
-        password,
+      const response = await axios.post("https://servers-z5cm.onrender.com/api/users/deposit", {
         amount: depositAmount,
+        pin: pin
       });
 
-      // If request is successful
-      setSuccessMessage(`Successfully deposited ₹${depositAmount}. New balance: ₹${response.data.newBalance}`);
+      toast.success(`Successfully deposited ₹${depositAmount}.`);
+      setUser({ ...user, amount: response.data.newBalance, transactions: response.data.transactions });
       setDeposit("");
-      setIsValid(false);
+      setPin("");
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || "Deposit failed. Please try again.");
+      toast.error(error.response?.data?.message || "Deposit failed. Please try again.");
     }
   };
 
+  if (!user) return <div className="container mt-5"><h3>Please login to deposit money.</h3></div>;
+
   return (
-    <div className="background">
-      <h1 className="register-heading">Deposit</h1>
+    <div className="container pb-5">
+      <div className="bank-form-container">
+        <div className="bank-form-header">
+          <h2 className="fw-bold mb-0">Deposit Funds</h2>
+          <p className="opacity-75 mb-0">Secure Instant Deposit</p>
+          <div className="bank-balance-card mt-3">
+            <span className="d-block small text-uppercase opacity-75">Available Balance</span>
+            <span className="h3 fw-bold mb-0">₹{user.amount.toLocaleString()}</span>
+          </div>
+        </div>
 
-      {successMessage && <div className="alert alert-success">{successMessage}</div>}
-      {errorMessage && <div className="alert alert-danger">{errorMessage}</div>}
+        <div className="bank-form-body">
 
-      <Form className="custom-form" onSubmit={handleSubmit}>
-        <Form.Group className="mb-3 custom-form-group">
-          <Form.Label className="custom-label">Email address</Form.Label>
-          <Form.Control
-            className="custom-input"
-            type="email"
-            placeholder="Enter email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              validateForm();
-            }}
-          />
-        </Form.Group>
+          <Form onSubmit={handleSubmit}>
+            <div className="bank-input-group">
+              <label className="bank-label">Deposit Amount</label>
+              <div className="bank-input-wrapper">
+                <span className="bank-currency-symbol">₹</span>
+                <input
+                  className="bank-input"
+                  type="number"
+                  placeholder="0.00"
+                  value={deposit}
+                  onChange={(e) => setDeposit(e.target.value)}
+                  required
+                />
+              </div>
+              <Form.Text className="text-muted">Enter the amount you wish to add to your account.</Form.Text>
+            </div>
 
-        <Form.Group className="mb-3 custom-form-group">
-          <Form.Label className="custom-label">Password</Form.Label>
-          <Form.Control
-            className="custom-input"
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              validateForm();
-            }}
-          />
-        </Form.Group>
+            <div className="bank-input-group">
+              <label className="bank-label">Transaction PIN</label>
+              <div className="bank-input-wrapper">
+                <input
+                  className="bank-input"
+                  type={showPin ? "text" : "password"}
+                  maxLength="4"
+                  placeholder="••••"
+                  style={{ paddingLeft: "15px", paddingRight: "45px" }}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  required
+                />
+                <span
+                  onClick={() => setShowPin(!showPin)}
+                  style={{ position: 'absolute', right: '15px', cursor: 'pointer', color: '#546e7a' }}
+                >
+                  <i className={`bi bi-eye${showPin ? '-slash' : ''}-fill`}></i>
+                </span>
+              </div>
+              <Form.Text className="text-muted">For security, please enter your 4-digit PIN.</Form.Text>
+            </div>
 
-        <Form.Group className="mb-3 custom-form-group">
-          <Form.Label className="custom-label">Amount</Form.Label>
-          <Form.Control
-            className="custom-input"
-            type="number"
-            placeholder="Enter deposit amount"
-            value={deposit}
-            onChange={(e) => {
-              setDeposit(e.target.value);
-              validateForm();
-            }}
-          />
-        </Form.Group>
-
-        <Button className="custom-button" variant="primary" type="submit" disabled={!isValid}>
-          Deposit
-        </Button>
-      </Form>
+            <button className="bank-submit-btn shadow-sm" type="submit" disabled={!deposit || pin.length !== 4}>
+              Process Deposit
+            </button>
+          </Form>
+        </div>
+      </div>
     </div>
   );
 }
